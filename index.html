@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="项目资源排期与成本情景工作台交互原型">
+  <title>项目资源排期与成本情景工作台</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <a class="brand" href="#overview" aria-label="资源决策台首页">
+        <span class="brand-mark">R</span>
+        <span><strong>资源决策台</strong><small>新产品上市筹备 · 合成数据</small></span>
+      </a>
+      <nav class="mode-nav" aria-label="工作模式">
+        <button type="button" class="mode-button is-active" data-view-target="overview" aria-pressed="true">全局总览</button>
+        <button type="button" class="mode-button" data-view-target="conflicts" aria-pressed="false">冲突处理 <span id="nav-conflict-count">2</span></button>
+        <button type="button" class="mode-button" data-view-target="discussion" aria-pressed="false">协作 Dashboard <span id="nav-feedback-count">0</span></button>
+      </nav>
+      <div class="top-actions">
+        <label class="compact-field">当前角色
+          <select id="active-role" aria-label="切换演示角色">
+            <option value="pm">项目经理</option>
+            <option value="resource">部门资源负责人</option>
+            <option value="member">项目团队成员</option>
+          </select>
+        </label>
+        <button type="button" class="button secondary" id="open-permissions">权限</button>
+        <button type="button" class="button primary" id="export-decision">导出决策记录</button>
+      </div>
+    </header>
+
+    <main>
+      <section class="app-view is-active" id="overview-view" data-view="overview" aria-labelledby="overview-title">
+        <div class="page-heading">
+          <div>
+            <p class="eyebrow">项目快照 · 2026.11.02—11.27 · 规则 v0.1</p>
+            <h1 id="overview-title">全局可控，但两类资源冲突需要处理</h1>
+            <p class="subtitle">基线保持只读；所有调整先进入情景副本。11 月 18 日为演示用合成休息日。</p>
+          </div>
+          <div class="heading-actions">
+            <div class="segmented" aria-label="查看数据版本">
+              <button type="button" class="is-selected" data-display-mode="baseline">基线</button>
+              <button type="button" data-display-mode="scenario">情景预览</button>
+            </div>
+            <button type="button" class="button secondary" id="discard-scenario">放弃情景并回到基线</button>
+            <button type="button" class="button secondary" id="open-schedule-editor">新增任务 / 调整工期</button>
+            <button type="button" class="button primary" data-view-target="conflicts">处理冲突</button>
+          </div>
+        </div>
+
+        <div class="kpi-grid" aria-label="四项关键指标">
+          <article class="kpi-card"><span>计划完成</span><strong id="kpi-finish">11月20日</strong><small id="kpi-finish-delta">基线</small></article>
+          <article class="kpi-card"><span>计划成本</span><strong id="kpi-cost">¥28,900</strong><small id="kpi-cost-delta">合成计划值</small></article>
+          <article class="kpi-card risk"><span>超配时点</span><strong id="kpi-overloads">8</strong><small id="kpi-overload-detail">数据 3 · 视觉 5</small></article>
+          <article class="kpi-card"><span>依赖冲突</span><strong id="kpi-dependencies">0</strong><small>完成后开始（FS）</small></article>
+        </div>
+
+        <div class="overview-grid">
+          <article class="panel schedule-panel">
+            <div class="panel-heading">
+              <div><h2>项目甘特与依赖</h2><p>颜色代表负责角色；红色边框代表该任务参与资源冲突。</p></div>
+              <label class="zoom-control">缩放 <input id="gantt-zoom" type="range" min="80" max="150" value="100" step="10"><output id="gantt-zoom-value">100%</output></label>
+            </div>
+            <div class="gantt-legend" aria-label="甘特图图例">
+              <span><i class="data"></i>数据分析师任务</span><span><i class="design"></i>视觉设计师任务</span><span><i class="pm"></i>项目经理任务</span><span><i class="conflict"></i>参与冲突</span><span><i class="scenario"></i>已调整任务</span>
+            </div>
+            <div class="gantt-wrap" id="gantt-wrap">
+              <div class="gantt" id="gantt" aria-label="项目甘特图"></div>
+            </div>
+            <div class="schedule-evidence" id="schedule-evidence" aria-live="polite">选择任务后显示日期、投入、成本与前置任务。</div>
+            <section class="dependency-section" aria-labelledby="dependency-map-title">
+              <div class="dependency-heading">
+                <div><h3 id="dependency-map-title">完成后开始（FS）依赖关系</h3><p>箭头左侧任务完成后，右侧任务才能开始；拖动只调整图形位置，不修改任务的前置关系。</p></div>
+                <div class="dependency-controls">
+                  <label class="drag-toggle"><input type="checkbox" id="dependency-drag-toggle"> 手动拖动节点</label>
+                  <button type="button" class="button compact secondary" id="reset-dependency-layout">自动整理</button>
+                </div>
+              </div>
+              <div class="dependency-map" id="dependency-map"></div>
+            </section>
+          </article>
+
+          <aside class="conflict-summary" aria-labelledby="conflict-summary-title">
+            <div class="conflict-summary-heading"><div><p class="eyebrow">优先行动</p><h2 id="conflict-summary-title">待处理冲突</h2></div><span class="alert-mark" aria-hidden="true">!</span></div>
+            <div id="overview-conflicts"></div>
+            <div class="feedback-snapshot"><div><strong>协作反馈</strong><small><span id="overview-feedback-count">0</span> 条讨论记录</small></div><button type="button" class="text-button" data-view-target="discussion">打开 Dashboard</button></div>
+            <button type="button" class="button primary block" data-view-target="conflicts">进入冲突处理</button>
+          </aside>
+
+          <article class="panel heatmap-panel">
+            <div class="panel-heading"><div><h2>资源负荷热力图</h2><p>点击格子定位贡献任务；负荷大于容量即超配。</p></div><div class="legend"><span class="legend-normal"></span>正常 <span class="legend-risk"></span>超配</div></div>
+            <div class="heatmap-wrap"><div class="heatmap" id="heatmap" aria-label="资源负荷热力图"></div></div>
+            <div class="heatmap-evidence" id="heatmap-evidence" aria-live="polite">选择热力格后显示负荷构成。</div>
+          </article>
+
+          <article class="panel cost-panel">
+            <div class="panel-heading"><div><h2>成本构成与方案对比</h2><p>可调整合成角色日成本与任务固定费用，所有相关视图同步重算。</p></div><div class="panel-actions"><button type="button" class="text-button" id="toggle-cost-detail">查看明细</button><button type="button" class="button secondary compact" id="open-cost-editor">调整成本参数</button></div></div>
+            <div id="cost-chart" class="cost-chart" aria-label="成本构成图"></div>
+            <div class="cost-detail" id="cost-detail" hidden></div>
+          </article>
+        </div>
+      </section>
+
+      <section class="app-view" id="conflicts-view" data-view="conflicts" aria-labelledby="conflicts-title" hidden>
+        <div class="conflict-layout">
+          <aside class="conflict-inbox">
+            <div><p class="eyebrow">冲突处理</p><h1 id="conflicts-title">选择待决策问题</h1><p class="subtitle">切换回全局总览不会丢失当前情景。</p></div>
+            <div id="conflict-inbox-list"></div>
+            <div class="baseline-summary"><span>当前基线</span><strong>¥28,900 · 11月20日</strong><small>8 个资源×工作日超配时点</small></div>
+          </aside>
+
+          <div class="scenario-workspace">
+            <div class="workspace-heading">
+              <div><p class="eyebrow" id="workspace-resource">当前问题 · 数据分析师</p><h2 id="workspace-title">比较处理方案</h2><p class="subtitle">所有修改只进入情景副本，可随时撤销。</p></div>
+              <button type="button" class="button secondary" data-view-target="overview">返回全局总览</button>
+            </div>
+
+            <article class="guardrail-panel">
+              <div class="guardrail-heading"><div><h3>情景目标与护栏</h3><p>项目经理可按本次决策目标切换。</p></div><span id="guardrail-status" class="status-chip">平衡方案</span></div>
+              <div class="guardrail-explainer"><strong>护栏只改变“方案是否可接受”的判断标准，不会自动修改排期。</strong><span>要改变成本、负荷或完成日期，请继续选择下方处理方案并调整参数。</span></div>
+              <div class="goal-options" role="group" aria-label="情景目标">
+                <button type="button" data-goal="schedule"><strong>工期优先</strong><small>延期 0 天 · 成本 +10% 内</small></button>
+                <button type="button" data-goal="cost"><strong>成本优先</strong><small>成本不增加 · 延期 3 天内</small></button>
+                <button type="button" class="is-selected" data-goal="balanced"><strong>平衡方案</strong><small>成本 +5% 内 · 延期 1 天内</small></button>
+                <button type="button" data-goal="custom"><strong>自定义</strong><small>手动设置护栏</small></button>
+              </div>
+              <div class="custom-guardrails" id="custom-guardrails" hidden>
+                <label>最大成本增幅 <input id="custom-cost-limit" type="range" min="0" max="20" value="5"><output id="custom-cost-output">5%</output></label>
+                <label>最大延期 <input id="custom-delay-limit" type="range" min="0" max="10" value="1"><output id="custom-delay-output">1 个工作日</output></label>
+              </div>
+              <div class="guardrail-live" id="guardrail-live" aria-live="polite"></div>
+            </article>
+
+            <div class="combined-scenario-strip" id="combined-scenario-strip" aria-live="polite"></div>
+            <div class="scenario-options" id="scenario-options" role="group" aria-label="处理方案"></div>
+
+            <article class="panel scenario-editor">
+              <div class="panel-heading"><div><h3>方案参数</h3><p id="scenario-editor-help">调整开始日期或临时容量，视图会同步重算。</p></div><button type="button" class="text-button" id="reset-scenario">重置情景</button></div>
+              <div class="editor-fields" id="editor-fields"></div>
+              <div class="validation-message" id="scenario-validation" role="status"></div>
+            </article>
+
+            <article class="panel scenario-preview">
+              <div class="panel-heading"><div><h3>基线与组合情景对比</h3><p>当前情景会同时应用已启用的数据分析与视觉设计方案。</p></div><span class="version-chip">组合草稿</span></div>
+              <div class="comparison-grid" id="comparison-grid"></div>
+              <div class="dependency-chain" id="dependency-chain"></div>
+            </article>
+
+            <div class="workspace-footer">
+              <button type="button" class="button secondary" id="save-draft">保存情景草稿</button>
+              <button type="button" class="button secondary" data-view-target="discussion">发起讨论</button>
+              <button type="button" class="button primary" id="confirm-scenario">确认情景并记录决策</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="app-view" id="discussion-view" data-view="discussion" aria-labelledby="discussion-title" hidden>
+        <div class="page-heading">
+          <div><p class="eyebrow">协作 Dashboard</p><h1 id="discussion-title">反馈、讨论与决策记录</h1><p class="subtitle">演示数据保存在当前浏览器；不代表真实账号或跨设备实时同步。</p></div>
+          <button type="button" class="button secondary" data-view-target="overview">返回全局总览</button>
+        </div>
+        <div class="discussion-grid">
+          <article class="panel feedback-form-panel">
+            <h2>新增反馈</h2>
+            <form id="feedback-form">
+              <label>关联对象
+                <select id="feedback-target">
+                  <option value="DATA">数据分析师冲突</option>
+                  <option value="DESIGN">视觉设计师冲突</option>
+                  <option value="scenario">当前情景方案</option>
+                  <option value="general">项目整体</option>
+                </select>
+              </label>
+              <label>反馈内容
+                <textarea id="feedback-text" rows="5" maxlength="300" required placeholder="例如：建议优先错峰销量预测，因为不影响最终日期。"></textarea>
+              </label>
+              <button type="submit" class="button primary">提交反馈</button>
+            </form>
+            <div class="role-note" id="feedback-role-note"></div>
+          </article>
+          <article class="panel feedback-list-panel">
+            <div class="panel-heading"><div><h2>讨论记录</h2><p>可标记待处理、已采纳或已关闭。</p></div><button type="button" class="text-button" id="clear-feedback">清空演示反馈</button></div>
+            <div id="feedback-list" class="feedback-list"></div>
+          </article>
+          <article class="panel decision-log-panel">
+            <div class="panel-heading"><div><h2>决策记录</h2><p>确认情景后自动追加，可导出为 JSON。</p></div><button type="button" class="text-button" id="clear-decisions">清空演示决策</button></div>
+            <div id="decision-log" class="decision-log"></div>
+          </article>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <dialog id="permissions-dialog" class="permissions-dialog">
+    <form method="dialog">
+      <div class="dialog-heading"><div><p class="eyebrow">权限配置</p><h2>角色权限</h2><p>仅演示角色控制，不是生产级账号安全系统。</p></div><button type="submit" class="icon-button" aria-label="关闭">×</button></div>
+      <div class="permission-table-wrap">
+        <table class="permission-table">
+          <thead><tr><th>角色</th><th>查看</th><th>评论</th><th>编辑情景</th><th>调整权限</th></tr></thead>
+          <tbody id="permission-body"></tbody>
+        </table>
+      </div>
+      <div class="permission-history"><h3>最近变更</h3><div id="permission-history"></div></div>
+      <div class="dialog-actions"><button type="submit" class="button secondary">关闭</button><button type="button" class="button primary" id="save-permissions">保存权限</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="cost-dialog" class="cost-dialog">
+    <form method="dialog">
+      <div class="dialog-heading"><div><p class="eyebrow">成本参数</p><h2>调整合成计划成本</h2><p>保存后将联动首页指标、成本构成、情景比较、护栏判断与导出记录；冻结案例文件不会被改写。</p></div><button type="submit" class="icon-button" aria-label="关闭成本参数">×</button></div>
+      <div class="cost-editor-grid">
+        <section><h3>角色单位日成本（CNY）</h3><div id="rate-editor"></div></section>
+        <section><h3>任务固定费用（CNY）</h3><div id="fixed-cost-editor"></div></section>
+      </div>
+      <div class="cost-editor-preview" id="cost-editor-preview" aria-live="polite"></div>
+      <div class="dialog-actions"><button type="button" class="button secondary" id="reset-costs">恢复冻结基线</button><button type="submit" class="button secondary">取消</button><button type="button" class="button primary" id="save-costs">保存并联动重算</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="schedule-dialog" class="schedule-dialog">
+    <form method="dialog">
+      <div class="dialog-heading"><div><p class="eyebrow">项目排期草稿</p><h2>新增任务与调整工期</h2><p>修改只进入情景草稿，不改写冻结基线；保存后甘特、依赖、热力图、成本与完成日期同步更新。</p></div><button type="submit" class="icon-button" aria-label="关闭排期编辑器">×</button></div>
+      <section class="schedule-edit-section">
+        <div class="schedule-edit-heading"><div><h3>现有任务</h3><p>调整开始日期与固定工期。依赖不允许后置任务早于前置任务结束。</p></div><label>目标完成日期<select id="target-finish-date"></select></label></div>
+        <div class="schedule-table-wrap"><table class="schedule-table"><thead><tr><th>任务</th><th>角色</th><th>开始日期</th><th>工期（工作日）</th><th>前置</th><th>操作</th></tr></thead><tbody id="schedule-task-body"></tbody></table></div>
+      </section>
+      <section class="schedule-edit-section add-task-section">
+        <div><h3>新增项目任务</h3><p>新增任务会进入当前项目的情景草稿，可选择一个前置任务。</p></div>
+        <div class="new-task-grid">
+          <label>任务名称<input id="new-task-name" maxlength="30" placeholder="例如：渠道物料复核"></label>
+          <label>负责角色<select id="new-task-resource"><option value="DATA">数据分析师</option><option value="DESIGN">视觉设计师</option><option value="PM">项目经理</option></select></label>
+          <label>开始日期<select id="new-task-start"></select></label>
+          <label>工期<input id="new-task-duration" type="number" min="1" max="20" value="2"></label>
+          <label>每日投入<input id="new-task-allocation" type="number" min="0" max="2" step="0.1" value="0.5"></label>
+          <label>前置任务<select id="new-task-predecessor"><option value="">无</option></select></label>
+          <label>固定费用（CNY）<input id="new-task-fixed-cost" type="number" min="0" step="100" value="0"></label>
+          <button type="button" class="button secondary" id="add-task-draft">添加到草稿</button>
+        </div>
+        <div class="added-task-list" id="added-task-list"></div>
+      </section>
+      <div class="schedule-editor-preview" id="schedule-editor-preview" aria-live="polite"></div>
+      <div class="dialog-actions"><button type="button" class="button secondary" id="reset-schedule">恢复原排期</button><button type="submit" class="button secondary">取消</button><button type="button" class="button primary" id="save-schedule">保存为情景草稿</button></div>
+    </form>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+  <script src="app.js"></script>
+</body>
+</html>
